@@ -1,12 +1,23 @@
-# Włącz RDP
-Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
+# Wyłącz standardowe szerokie reguły RDP
+Get-NetFirewallRule -DisplayGroup "Remote Desktop" | Disable-NetFirewallRule
 
-# Włącz Network Level Authentication (NLA)
-Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication -Value 1
+# Utwórz regułę dla RDP (TCP 3389) tylko na interfejsie ZeroTier
+New-NetFirewallRule `
+  -DisplayName "RDP over ZeroTier (TCP)" `
+  -Direction Inbound -Action Allow -Enabled True `
+  -Protocol TCP -LocalPort 3389 `
+  -Profile Private `
+  -InterfaceAlias "ZeroTier One*"
 
-# Dodaj użytkownika do grupy "Remote Desktop Users" (opcjonalnie)
-net localgroup "Remote Desktop Users" "$env:USERNAME" /add
+# (opcjonalnie) jeśli używasz też UDP dla RDP (nowe wersje to obsługują)
+New-NetFirewallRule `
+  -DisplayName "RDP over ZeroTier (UDP)" `
+  -Direction Inbound -Action Allow -Enabled True `
+  -Protocol UDP -LocalPort 3389 `
+  -Profile Private `
+  -InterfaceAlias "ZeroTier One*"
 
-# Upewnij się, że usługa RDP działa
-Set-Service -Name TermService -StartupType Automatic
-Start-Service -Name TermService
+
+
+
+Get-NetIPConfiguration -InterfaceAlias "ZeroTier One*"
