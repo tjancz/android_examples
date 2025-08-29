@@ -1,23 +1,26 @@
-# Wyłącz standardowe szerokie reguły RDP
-Get-NetFirewallRule -DisplayGroup "Remote Desktop" | Disable-NetFirewallRule
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-# Utwórz regułę dla RDP (TCP 3389) tylko na interfejsie ZeroTier
-New-NetFirewallRule `
-  -DisplayName "RDP over ZeroTier (TCP)" `
-  -Direction Inbound -Action Allow -Enabled True `
-  -Protocol TCP -LocalPort 3389 `
-  -Profile Private `
-  -InterfaceAlias "ZeroTier One*"
+while ($true) {
+    # 1. Delikatny ruch myszki (o 1 piksel w lewo i prawo)
+    $pos = [System.Windows.Forms.Cursor]::Position
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ($pos.X + 1), $pos.Y
+    Start-Sleep -Milliseconds 200
+    [System.Windows.Forms.Cursor]::Position = $pos
 
-# (opcjonalnie) jeśli używasz też UDP dla RDP (nowe wersje to obsługują)
-New-NetFirewallRule `
-  -DisplayName "RDP over ZeroTier (UDP)" `
-  -Direction Inbound -Action Allow -Enabled True `
-  -Protocol UDP -LocalPort 3389 `
-  -Profile Private `
-  -InterfaceAlias "ZeroTier One*"
+    # 2. Symulacja naciśnięcia klawisza SHIFT (nieszkodliwe)
+    $signature = @'
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+'@
+    Add-Type -MemberDefinition $signature -Name "Win32Keyboard" -Namespace Win32Functions
+    $VK_SHIFT = 0x10
+    $KEYEVENTF_KEYUP = 0x02
 
+    [Win32Functions.Win32Keyboard]::keybd_event($VK_SHIFT, 0, 0, 0)       # wciśnięcie
+    [Win32Functions.Win32Keyboard]::keybd_event($VK_SHIFT, 0, $KEYEVENTF_KEYUP, 0) # puszczenie
 
+    # Poczekaj 60 sekund i powtórz
+    Start-Sleep -Seconds 60
+}
 
-
-Get-NetIPConfiguration -InterfaceAlias "ZeroTier One*"
