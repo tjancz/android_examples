@@ -38,3 +38,9 @@ powershell.exe -ExecutionPolicy Bypass -File .\antiidle.ps1
   -device ide-cd,drive=cd0 `
   -netdev user,id=n0 -device virtio-net-pci,netdev=n0 `
   -boot order=d
+
+
+
+
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard" -Name EnableVirtualizationBasedSecurity -PropertyType DWord -Value 0 -Force
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name LsaCfgFlags -PropertyType DWord -Value 0 -Force
