@@ -28,4 +28,13 @@ powershell.exe -ExecutionPolicy Bypass -File .\antiidle.ps1
 
 
 
-  
+  dism.exe /online /Get-Features | findstr Hyper
+
+  & "C:\Program Files\qemu\qemu-system-x86_64.exe" `
+  -m 4096 -smp 2 -cpu host `
+  -drive "if=none,file=C:\qemu\ubuntu2404.qcow2,format=qcow2,id=vd0" `
+  -device virtio-blk-pci,drive=vd0 `
+  -drive "if=none,media=cdrom,file=C:\qemu\ubuntu-24.04.3-desktop-amd64.iso,id=cd0" `
+  -device ide-cd,drive=cd0 `
+  -netdev user,id=n0 -device virtio-net-pci,netdev=n0 `
+  -boot order=d
