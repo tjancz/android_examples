@@ -1,48 +1,31 @@
 powershell.exe -ExecutionPolicy Bypass -File .\antiidle.ps1
 
-# ======================================================================
-# disable-vbs.ps1
-# Wyłącza VBS, Hyper-V/Hypervisor, Credential Guard i HVCI (Memory Integrity)
-# Cel: uruchamianie QEMU z WHPX (-machine accel=whpx) bez crashy.
-# ======================================================================
+# --- HYPERVISOR / FUNKCJE OPCJONALNE ---
+dism /Online /Disable-Feature:Microsoft-Hyper-V-All /NoRestart
+dism /Online /Disable-Feature:HypervisorPlatform /NoRestart
+dism /Online /Disable-Feature:VirtualMachinePlatform /NoRestart
+dism /Online /Disable-Feature:IsolatedUserMode /NoRestart
 
-# 0) Wymuś admina
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-  Write-Host "[!] Uruchom ten skrypt jako Administrator." -ForegroundColor Red
-  exit 1
-}
+# --- BCDEDIT: nie uruchamiaj hypervisora ---
+bcdedit /set hypervisorlaunchtype off
 
-Write-Host "`n=== [1/6] Wyłączam wszystkie składniki Hyper-V... ===" -ForegroundColor Cyan
-dism.exe /Online /Disable-Feature:Microsoft-Hyper-V-All /NoRestart | Out-Null
+# --- DEVICE GUARD / VBS ---
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v EnableVirtualizationBasedSecurity /t REG_DWORD /d 0 /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v RequirePlatformSecurityFeatures /t REG_DWORD /d 0 /f
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard" /f 2>nul
 
-Write-Host "=== [2/6] Wyłączam autostart hypervisora (BCDEdit) ... ===" -ForegroundColor Cyan
-bcdedit /set hypervisorlaunchtype off | Out-Null
+# --- HVCI (Memory Integrity) ---
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" /v Enabled /t REG_DWORD /d 0 /f
 
-Write-Host "=== [3/6] Wyłączam VBS (Device Guard) ... ===" -ForegroundColor Cyan
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v EnableVirtualizationBasedSecurity /t REG_DWORD /d 0 /f | Out-Null
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v RequirePlatformSecurityFeatures /t REG_DWORD /d 0 /f | Out-Null
+# --- CREDENTIAL GUARD ---
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\CredentialGuard" /v Enabled /t REG_DWORD /d 0 /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v LsaCfgFlags /t REG_DWORD /d 0 /f
 
-Write-Host "=== [4/6] Wyłączam Credential Guard ... ===" -ForegroundColor Cyan
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v LsaCfgFlags /t REG_DWORD /d 0 /f | Out-Null
+# --- WYŁĄCZ szybkie uruchamianie (żeby był pełny, "zimny" start) ---
+powercfg -h off
 
-Write-Host "=== [5/6] Wyłączam HVCI (Memory Integrity) ... ===" -ForegroundColor Cyan
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" /v Enabled /t REG_DWORD /d 0 /f | Out-Null
+Write-Host "`n[INFO] Wykonaj TERAZ pełny restart: shutdown /s /t 0" -ForegroundColor Yellow
 
-Write-Host "=== [6/6] (Opcjonalnie) Usuwam polityki Device Guard z HKLM\\SOFTWARE\\Policies ... ===" -ForegroundColor Cyan
-reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard" /f 2>$null | Out-Null
-
-# Podgląd stanu przed restartem
-Write-Host "`n[Info] Stan Device Guard / VBS (przed restartem):" -ForegroundColor Yellow
-Get-CimInstance -ClassName Win32_DeviceGuard | Select-Object SecurityServicesConfigured,SecurityServicesRunning,VirtualizationBasedSecurityStatus | Format-List
-
-Write-Host "`n[Ważne] Zmiany wymagają pełnego restartu systemu." -ForegroundColor Green
-$ans = Read-Host "Zrestartować teraz? (T/N)"
-if ($ans -match '^[TtYy]') {
-  Write-Host "Restart za 5 sekund..." -ForegroundColor Green
-  shutdown /r /t 5
-} else {
-  Write-Host "Pamiętaj, aby zrestartować komputer ręcznie, zanim uruchomisz QEMU z WHPX." -ForegroundColor Yellow
-}
 
 
 
