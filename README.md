@@ -1,46 +1,34 @@
 powershell.exe -ExecutionPolicy Bypass -File .\antiidle.ps1
 
-& "C:\Program Files\qemu\qemu-system-x86_64.exe" `
-  -machine type=pc,accel=whpx `
-  -cpu host `
-  -m 8192 -smp 4 `
-  -display sdl `
-  -drive "if=none,file=C:\qemu\ubuntu2404.qcow2,format=qcow2,id=vd0,cache=writeback" `
-  -device virtio-blk-pci,drive=vd0 `
-  -drive "if=none,media=cdrom,file=C:\qemu\ubuntu-24.04.3-desktop-amd64.iso,id=cd0" `
-  -device ide-cd,drive=cd0 `
-  -netdev user,id=n0 `
-  -device virtio-net-pci,netdev=n0 `
-  -boot order=d
+# ======================================================================
+# disable-vbs.ps1
+# Wyłącza Hyper-V, Virtualization Based Security i Credential Guard
+# dla pełnej zgodności z QEMU + WHPX na Windows 11.
+# ======================================================================
+
+Write-Host "[*] Wyłączanie Hyper-V..." -ForegroundColor Cyan
+dism.exe /Online /Disable-Feature:Microsoft-Hyper-V-All /NoRestart
+
+Write-Host "[*] Wyłączanie Virtualization Based Security (VBS)..." -ForegroundColor Cyan
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v EnableVirtualizationBasedSecurity /t REG_DWORD /d 0 /f
+
+Write-Host "[*] Wyłączanie Credential Guard (LsaCfgFlags=0)..." -ForegroundColor Cyan
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v LsaCfgFlags /t REG_DWORD /d 0 /f
+
+Write-Host "[*] Wyłączanie HypervisorLaunchType (BCDEdit)..." -ForegroundColor Cyan
+bcdedit /set hypervisorlaunchtype off
+
+Write-Host "`n[*] Zmiany zostały wprowadzone. Zrestartuj system, aby weszły w życie." -ForegroundColor Green
+
+Write-Host "`n[*] Aktualny status (przed restartem):" -ForegroundColor Yellow
+systeminfo | findstr /i "Virtualization"
 
 
-
-& "C:\Program Files\qemu\qemu-system-x86_64.exe" `
-  -machine type=pc,accel=whpx `
-  -cpu host `
-  -m 8192 -smp 4 `
-  -display sdl `
-  -drive "if=none,file=C:\qemu\ubuntu2404.qcow2,format=qcow2,id=vd0,cache=writeback" `
-  -device virtio-blk-pci,drive=vd0 `
-  -netdev user,id=n0 `
-  -device virtio-net-pci,netdev=n0 `
-  -boot order=c
+Set-ExecutionPolicy Bypass -Scope Process -Force
 
 
-
-  dism.exe /online /Get-Features | findstr Hyper
-
-  & "C:\Program Files\qemu\qemu-system-x86_64.exe" `
-  -m 4096 -smp 2 -cpu host `
-  -drive "if=none,file=C:\qemu\ubuntu2404.qcow2,format=qcow2,id=vd0" `
-  -device virtio-blk-pci,drive=vd0 `
-  -drive "if=none,media=cdrom,file=C:\qemu\ubuntu-24.04.3-desktop-amd64.iso,id=cd0" `
-  -device ide-cd,drive=cd0 `
-  -netdev user,id=n0 -device virtio-net-pci,netdev=n0 `
-  -boot order=d
+C:\Scripts\disable-vbs.ps1
 
 
+systeminfo | findstr /i "Virtualization"
 
-
-New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard" -Name EnableVirtualizationBasedSecurity -PropertyType DWord -Value 0 -Force
-New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name LsaCfgFlags -PropertyType DWord -Value 0 -Force
