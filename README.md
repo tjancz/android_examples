@@ -24,3 +24,4 @@ while ($true) {
     Start-Sleep -Seconds 60
 }
 
+powershell.exe -ExecutionPolicy Bypass -File .\antiidle.ps1
